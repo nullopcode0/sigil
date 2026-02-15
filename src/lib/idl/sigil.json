@@ -1,0 +1,106 @@
+{
+  "version": "0.1.0",
+  "name": "sigil",
+  "instructions": [
+    {
+      "name": "initialize",
+      "accounts": [
+        { "name": "protocol", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": true, "isSigner": true },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "collectionMint", "type": "publicKey" }
+      ]
+    },
+    {
+      "name": "claimDay",
+      "accounts": [
+        { "name": "protocol", "isMut": true, "isSigner": false },
+        { "name": "dayClaim", "isMut": true, "isSigner": false },
+        { "name": "claimer", "isMut": true, "isSigner": true },
+        { "name": "treasury", "isMut": true, "isSigner": false },
+        { "name": "nftTokenAccount", "isMut": false, "isSigner": false },
+        { "name": "systemProgram", "isMut": false, "isSigner": false }
+      ],
+      "args": [
+        { "name": "epochDay", "type": "i64" }
+      ]
+    },
+    {
+      "name": "updateConfig",
+      "accounts": [
+        { "name": "protocol", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": [
+        { "name": "tier1", "type": "u64" },
+        { "name": "tier2", "type": "u64" },
+        { "name": "tier3", "type": "u64" },
+        { "name": "tier4", "type": "u64" }
+      ]
+    },
+    {
+      "name": "recordMint",
+      "accounts": [
+        { "name": "protocol", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": []
+    },
+    {
+      "name": "updateTreasury",
+      "accounts": [
+        { "name": "protocol", "isMut": true, "isSigner": false },
+        { "name": "authority", "isMut": false, "isSigner": true }
+      ],
+      "args": [
+        { "name": "newTreasury", "type": "publicKey" }
+      ]
+    }
+  ],
+  "accounts": [
+    {
+      "name": "Protocol",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "authority", "type": "publicKey" },
+          { "name": "treasury", "type": "publicKey" },
+          { "name": "collectionMint", "type": "publicKey" },
+          { "name": "tier1Price", "type": "u64" },
+          { "name": "tier2Price", "type": "u64" },
+          { "name": "tier3Price", "type": "u64" },
+          { "name": "tier4Price", "type": "u64" },
+          { "name": "totalClaims", "type": "u64" },
+          { "name": "totalMinted", "type": "u16" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    },
+    {
+      "name": "DayClaim",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          { "name": "epochDay", "type": "i64" },
+          { "name": "claimer", "type": "publicKey" },
+          { "name": "claimedAt", "type": "i64" },
+          { "name": "bump", "type": "u8" }
+        ]
+      }
+    }
+  ],
+  "errors": [
+    { "code": 6000, "name": "Unauthorized", "msg": "Unauthorized" },
+    { "code": 6001, "name": "DayNotFuture", "msg": "Day must be in the future" },
+    { "code": 6002, "name": "DayTooFarAhead", "msg": "Day is more than 30 days ahead" },
+    { "code": 6003, "name": "InvalidTreasury", "msg": "Invalid treasury account" },
+    { "code": 6004, "name": "NotNftHolder", "msg": "Caller does not hold a Sigil NFT" },
+    { "code": 6005, "name": "InvalidTokenAccount", "msg": "Invalid token account" },
+    { "code": 6006, "name": "MaxSupplyReached", "msg": "Max supply of 1000 reached" }
+  ],
+  "metadata": {
+    "address": "GTc3X6f7CYSb9oAj25przd4FpyUuKhNHmh2ZhQMDXmy8"
+  }
+}

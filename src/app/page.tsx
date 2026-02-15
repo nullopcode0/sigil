@@ -1,101 +1,147 @@
-import Image from "next/image";
+'use client';
+
+import { useState, useEffect, useCallback } from 'react';
+import dynamic from 'next/dynamic';
+import { useWallet, useConnection } from '@solana/wallet-adapter-react';
+import { PublicKey } from '@solana/web3.js';
+
+const WalletMultiButton = dynamic(
+  () => import('@solana/wallet-adapter-react-ui').then((m) => m.WalletMultiButton),
+  { ssr: false }
+);
+import Calendar from '@/components/Calendar';
+import MintCard from '@/components/MintCard';
+import ClaimSheet from '@/components/ClaimSheet';
+import HowItWorksModal from '@/components/HowItWorksModal';
+import Analytics from '@/components/Analytics';
+
+function ThemeToggle() {
+  const [dark, setDark] = useState(false);
+
+  useEffect(() => {
+    setDark(document.documentElement.classList.contains('dark'));
+  }, []);
+
+  function toggle() {
+    const next = !dark;
+    setDark(next);
+    document.documentElement.classList.toggle('dark', next);
+    localStorage.setItem('sigil-theme', next ? 'dark' : 'light');
+  }
+
+  return (
+    <button
+      onClick={toggle}
+      className="w-9 h-9 rounded-xl border border-border bg-surface flex items-center justify-center
+        text-muted hover:text-foreground hover:border-accent/30 transition-colors"
+      aria-label="Toggle theme"
+    >
+      {dark ? (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <circle cx="8" cy="8" r="3.5" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.05 3.05l1.41 1.41M11.54 11.54l1.41 1.41M3.05 12.95l1.41-1.41M11.54 4.46l1.41-1.41" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+        </svg>
+      ) : (
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+          <path d="M14 9.2A6 6 0 016.8 2 6 6 0 1014 9.2z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+        </svg>
+      )}
+    </button>
+  );
+}
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-8 row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="https://nextjs.org/icons/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const { publicKey, connected } = useWallet();
+  const { connection } = useConnection();
+  const [totalMinted, setTotalMinted] = useState(0);
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [nftTokenAccount, setNftTokenAccount] = useState<string | undefined>();
+  const [calendarKey, setCalendarKey] = useState(0);
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="https://nextjs.org/icons/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:min-w-44"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+  // Check if connected wallet holds a Sigil NFT
+  useEffect(() => {
+    if (!publicKey) {
+      setNftTokenAccount(undefined);
+      return;
+    }
+
+    connection
+      .getParsedTokenAccountsByOwner(publicKey, {
+        programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+      })
+      .then(({ value }) => {
+        const nftAccount = value.find((acc) => {
+          const info = acc.account.data.parsed.info;
+          return info.tokenAmount.uiAmount === 1 && info.tokenAmount.decimals === 0;
+        });
+        setNftTokenAccount(nftAccount?.pubkey.toString());
+      })
+      .catch(() => setNftTokenAccount(undefined));
+  }, [publicKey, connection]);
+
+  const handleClaimed = useCallback(() => {
+    setSelectedDay(null);
+    setCalendarKey((k) => k + 1);
+  }, []);
+
+  return (
+    <main className="min-h-screen flex flex-col items-center px-4 py-6 sm:py-10">
+      {/* Header */}
+      <header className="w-full max-w-lg flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
+            <span className="text-accent">SIGIL</span>
+          </h1>
+          <p className="text-xs text-muted mt-0.5">Living NFT &middot; sigil.bond</p>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-6 flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
+          <WalletMultiButton />
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="w-full max-w-lg space-y-6">
+        {/* Mint Card */}
+        <MintCard
+          totalMinted={totalMinted}
+          onMinted={() => setTotalMinted((n) => n + 1)}
+        />
+
+        {/* Calendar */}
+        <section>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-sm font-semibold text-foreground">Calendar</h2>
+            <span className="text-xs text-muted font-mono">30 days</span>
+          </div>
+          <Calendar
+            key={calendarKey}
+            onSelectDay={setSelectedDay}
+            selectedDay={selectedDay}
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="https://nextjs.org/icons/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+        </section>
+
+        {/* Analytics */}
+        <Analytics />
+
+        {/* Footer */}
+        <footer className="text-center text-[11px] text-muted/50 py-6">
+          sigil.bond &middot; Living NFT on Solana
+        </footer>
+      </div>
+
+      {/* How It Works Modal */}
+      <HowItWorksModal walletConnected={connected} />
+
+      {/* Claim Sheet */}
+      {selectedDay !== null && (
+        <ClaimSheet
+          epochDay={selectedDay}
+          onClose={() => setSelectedDay(null)}
+          onClaimed={handleClaimed}
+          nftTokenAccount={nftTokenAccount}
+        />
+      )}
+    </main>
   );
 }
