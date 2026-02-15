@@ -16,6 +16,9 @@ export const supabase = {
   from(table: string) {
     return this.client.from(table);
   },
+  get storage() {
+    return this.client.storage;
+  },
 };
 
 // Server-side client with service key for writes
@@ -30,20 +33,31 @@ export function getServiceClient() {
 export interface DayClaimRow {
   epoch_day: number;
   claimer_wallet: string;
-  link_url: string;
+  image_url?: string;
+  incentive_lamports: number;
+  total_weight: number;
   farcaster_username?: string;
   farcaster_pfp_url?: string;
   farcaster_fid?: number;
   claimed_at: string;
 }
 
-export interface ClickRow {
+export interface CheckInRow {
   id?: number;
   epoch_day: number;
-  timestamp: string;
-  referrer?: string;
-  user_agent?: string;
-  ip_hash: string;
+  wallet: string;
+  weight: number;
+  checked_in_at: string;
+}
+
+export interface RewardLedgerRow {
+  id?: number;
+  epoch_day: number;
+  wallet: string;
+  amount_lamports: number;
+  tx_signature?: string;
+  status: 'pending' | 'sent' | 'failed';
+  created_at: string;
 }
 
 export interface NftMintRow {

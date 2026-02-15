@@ -1,10 +1,11 @@
 /**
- * Initialize the Sigil protocol on-chain.
+ * Initialize the Sigil v2 protocol on-chain.
  * Run: npx tsx --skip-project scripts/initialize-protocol.ts
  */
 import { Connection, Keypair, PublicKey } from '@solana/web3.js';
 import { AnchorProvider, Program, Idl } from '@coral-xyz/anchor';
-import bs58 from 'bs58';
+import * as bs58Module from 'bs58';
+const bs58 = (bs58Module as any).default || bs58Module;
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -18,12 +19,17 @@ async function main() {
   const collectionMintStr = process.env.NEXT_PUBLIC_COLLECTION_MINT;
   if (!collectionMintStr) throw new Error('Set NEXT_PUBLIC_COLLECTION_MINT env var (run create-collection first)');
 
+  const incentiveWalletStr = process.env.NEXT_PUBLIC_INCENTIVE_WALLET;
+  if (!incentiveWalletStr) throw new Error('Set NEXT_PUBLIC_INCENTIVE_WALLET env var');
+
   const keypair = Keypair.fromSecretKey(bs58.decode(keypairStr));
   const collectionMint = new PublicKey(collectionMintStr);
+  const incentiveWallet = new PublicKey(incentiveWalletStr);
   const connection = new Connection(rpc, 'confirmed');
 
   console.log('Authority:', keypair.publicKey.toString());
   console.log('Collection Mint:', collectionMint.toString());
+  console.log('Incentive Wallet:', incentiveWallet.toString());
 
   const wallet = {
     publicKey: keypair.publicKey,
@@ -47,6 +53,7 @@ async function main() {
     console.log('Protocol already initialized!');
     console.log('  Authority:', existing.authority.toString());
     console.log('  Treasury:', existing.treasury.toString());
+    console.log('  Incentive Wallet:', existing.incentiveWallet.toString());
     console.log('  Total Minted:', existing.totalMinted);
     console.log('  Total Claims:', existing.totalClaims.toString());
     return;
@@ -54,9 +61,9 @@ async function main() {
     // Not initialized yet, proceed
   }
 
-  // Initialize
+  // Initialize with collection mint AND incentive wallet
   const txSig = await program.methods
-    .initialize(collectionMint)
+    .initialize(collectionMint, incentiveWallet)
     .accounts({
       protocol: protocolPda,
       authority: keypair.publicKey,
@@ -71,6 +78,7 @@ async function main() {
   const proto = await program.account.protocol.fetch(protocolPda);
   console.log('Authority:', proto.authority.toString());
   console.log('Treasury:', proto.treasury.toString());
+  console.log('Incentive Wallet:', proto.incentiveWallet.toString());
   console.log('Collection:', proto.collectionMint.toString());
   console.log('Tier prices (lamports):', {
     tier1: proto.tier1Price.toString(),

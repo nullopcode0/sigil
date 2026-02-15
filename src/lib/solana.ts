@@ -11,13 +11,20 @@ export const TREASURY = new PublicKey(
   process.env.NEXT_PUBLIC_TREASURY || 'CGiuetrCxiaibJuxxCvrRjMyEjgmVEngxmvBXJtrmB5y'
 );
 
+export const INCENTIVE_WALLET = process.env.NEXT_PUBLIC_INCENTIVE_WALLET
+  ? new PublicKey(process.env.NEXT_PUBLIC_INCENTIVE_WALLET)
+  : null;
+
 export const COLLECTION_MINT = process.env.NEXT_PUBLIC_COLLECTION_MINT
   ? new PublicKey(process.env.NEXT_PUBLIC_COLLECTION_MINT)
   : null;
 
-export const MAX_SUPPLY = 1000;
-export const MINT_PRICE_SOL = 0.003;
-export const MINT_PRICE_LAMPORTS = MINT_PRICE_SOL * 1e9;
+export const MAX_SUPPLY = 10_000;
+export const MINT_PRICE_SOL = 0.01;
+export const MINT_PRICE_LAMPORTS = MINT_PRICE_SOL * 1e9; // 10_000_000
+export const MIN_INCENTIVE_SOL = 0.1;
+export const MIN_INCENTIVE_LAMPORTS = MIN_INCENTIVE_SOL * 1e9; // 100_000_000
+export const DAILY_BONUS_THRESHOLD = 1000; // first 1000 check-ins get 2x weight
 
 export function getConnection(): Connection {
   const rpc = process.env.SOLANA_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';

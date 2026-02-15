@@ -23,13 +23,22 @@ export async function POST(request: NextRequest) {
     }
 
     const connection = getConnection();
+    const supabase = getServiceClient();
 
-    // 1. Verify payment TX
+    // 1. One NFT per wallet — check DB
+    const { count: existingCount } = await supabase
+      .from('nft_mints')
+      .select('*', { count: 'exact', head: true })
+      .eq('owner_wallet', wallet);
+    if ((existingCount ?? 0) > 0) {
+      return NextResponse.json({ error: 'Already minted — 1 Sigil per wallet' }, { status: 400 });
+    }
+
+    // 2. Verify payment TX
     await pollConfirmation(connection, txSignature);
     const tx = await connection.getParsedTransaction(txSignature, { maxSupportedTransactionVersion: 0 });
     if (!tx) return NextResponse.json({ error: 'Transaction not found' }, { status: 400 });
 
-    // Check it's a SOL transfer to treasury of at least MINT_PRICE
     const instructions = tx.transaction.message.instructions;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const transfer = instructions.find((ix: any) => {
@@ -45,8 +54,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Payment not found in transaction' }, { status: 400 });
     }
 
-    // 2. Check supply
-    const supabase = getServiceClient();
+    // 3. Check supply
     const { count } = await supabase.from('nft_mints').select('*', { count: 'exact', head: true });
     if ((count ?? 0) >= MAX_SUPPLY) {
       return NextResponse.json({ error: 'Max supply reached' }, { status: 400 });
@@ -54,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     const tokenId = (count ?? 0) + 1;
 
-    // 3. Mint NFT via Umi
+    // 4. Mint NFT via Umi
     const serverKeypair = getServerKeypair();
     const rpc = process.env.SOLANA_RPC_URL || process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
     const umi = createUmi(rpc).use(mplTokenMetadata());
@@ -73,9 +81,12 @@ export async function POST(request: NextRequest) {
       sellerFeeBasisPoints: { basisPoints: 0n, identifier: '%', decimals: 2 },
       tokenOwner: publicKey(wallet),
       isMutable: true,
+      collection: COLLECTION_MINT
+        ? { key: publicKey(COLLECTION_MINT.toString()), verified: false }
+        : undefined,
     }).sendAndConfirm(umi);
 
-    // 4. Verify collection membership (non-critical)
+    // 5. Verify collection membership (non-critical)
     if (COLLECTION_MINT) {
       try {
         const metadataPda = findMetadataPda(umi, { mint: mintSigner.publicKey });
@@ -88,7 +99,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5. Record in DB
+    // 6. Record in DB
     const mintAddress = mintSigner.publicKey.toString();
     await supabase.from('nft_mints').insert({
       mint_address: mintAddress,
@@ -97,7 +108,7 @@ export async function POST(request: NextRequest) {
       minted_at: new Date().toISOString(),
     });
 
-    // 6. Record mint on-chain (increment counter)
+    // 7. Record mint on-chain (increment counter)
     try {
       const program = getProgram();
       const [protocolPda] = getProtocolPda();

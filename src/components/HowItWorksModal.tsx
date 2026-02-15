@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const STORAGE_KEY = 'sigil-how-it-works-seen';
+const STORAGE_KEY = 'sigil-how-it-works-v2';
 
 interface HowItWorksModalProps {
   walletConnected: boolean;
@@ -28,13 +28,11 @@ export default function HowItWorksModal({ walletConnected }: HowItWorksModalProp
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm sheet-backdrop"
         onClick={dismiss}
       />
 
-      {/* Modal */}
       <div className="modal-content relative w-full max-w-md bg-surface border border-border rounded-2xl p-6 shadow-2xl">
         <h2 className="text-xl font-bold text-foreground mb-4">How Sigil Works</h2>
 
@@ -44,8 +42,8 @@ export default function HowItWorksModal({ walletConnected }: HowItWorksModalProp
               <span className="text-accent font-bold text-xs">1</span>
             </div>
             <div>
-              <div className="font-semibold text-foreground mb-0.5">Mint a Sigil</div>
-              <div>1,000 identical NFTs. Same image, same metadata &mdash; updated every day.</div>
+              <div className="font-semibold text-foreground mb-0.5">Mint a Sigil (0.01 SOL)</div>
+              <div>10,000 billboard NFTs. Same dynamic image &mdash; changes every day based on who claims it.</div>
             </div>
           </div>
 
@@ -54,8 +52,8 @@ export default function HowItWorksModal({ walletConnected }: HowItWorksModalProp
               <span className="text-accent font-bold text-xs">2</span>
             </div>
             <div>
-              <div className="font-semibold text-foreground mb-0.5">Claim a Day</div>
-              <div>Pick a day on the 30-day calendar and set your link. All 1,000 NFTs will point to it for 24 hours.</div>
+              <div className="font-semibold text-foreground mb-0.5">Advertisers Claim Days</div>
+              <div>Anyone can claim a day on the calendar. Upload a billboard image and fund an incentive pool for holders.</div>
             </div>
           </div>
 
@@ -64,8 +62,8 @@ export default function HowItWorksModal({ walletConnected }: HowItWorksModalProp
               <span className="text-accent font-bold text-xs">3</span>
             </div>
             <div>
-              <div className="font-semibold text-foreground mb-0.5">Tap to Visit</div>
-              <div>Anyone viewing a Sigil NFT just taps it. They get redirected to whatever link is live that day.</div>
+              <div className="font-semibold text-foreground mb-0.5">Check In Daily</div>
+              <div>Holders sign in daily (free, gasless). First 1,000 each day earn 2x weight toward that day&apos;s rewards.</div>
             </div>
           </div>
 
@@ -74,8 +72,8 @@ export default function HowItWorksModal({ walletConnected }: HowItWorksModalProp
               <span className="text-accent font-bold text-xs">4</span>
             </div>
             <div>
-              <div className="font-semibold text-foreground mb-0.5">Track Clicks</div>
-              <div>Every redirect is logged. You can see exactly how many people visited through your link.</div>
+              <div className="font-semibold text-foreground mb-0.5">Earn SOL</div>
+              <div>After each day settles, claim your share of the incentive pool based on your check-in weight.</div>
             </div>
           </div>
         </div>

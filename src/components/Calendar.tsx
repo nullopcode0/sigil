@@ -8,6 +8,9 @@ interface CalendarDay {
   label: string;
   isToday: boolean;
   claimed: boolean;
+  moderationStatus: 'pending' | 'approved' | 'denied' | null;
+  incentiveSol: string | null;
+  hasImage: boolean;
   farcasterUsername: string | null;
   farcasterPfp: string | null;
   wallet: string | null;
@@ -16,9 +19,11 @@ interface CalendarDay {
 interface CalendarProps {
   onSelectDay: (epochDay: number) => void;
   selectedDay: number | null;
+  onPlatformFeeLoaded?: (fee: number) => void;
+  refreshKey?: number;
 }
 
-export default function Calendar({ onSelectDay, selectedDay }: CalendarProps) {
+export default function Calendar({ onSelectDay, selectedDay, onPlatformFeeLoaded, refreshKey }: CalendarProps) {
   const [days, setDays] = useState<CalendarDay[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,10 +32,13 @@ export default function Calendar({ onSelectDay, selectedDay }: CalendarProps) {
       .then((r) => r.json())
       .then((data) => {
         setDays(data.days || []);
+        if (data.platformFee && onPlatformFeeLoaded) {
+          onPlatformFeeLoaded(data.platformFee);
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, []);
+  }, [onPlatformFeeLoaded, refreshKey]);
 
   if (loading) {
     return (
@@ -46,6 +54,9 @@ export default function Calendar({ onSelectDay, selectedDay }: CalendarProps) {
     <div className="grid grid-cols-5 sm:grid-cols-7 gap-1.5">
       {days.map((day) => {
         const isSelected = selectedDay === day.epochDay;
+        const isPending = day.claimed && day.moderationStatus === 'pending';
+        const isDenied = day.claimed && day.moderationStatus === 'denied';
+        const isApproved = day.claimed && day.moderationStatus === 'approved';
         const isAvailable = !day.claimed && !day.isToday;
 
         return (
@@ -58,11 +69,15 @@ export default function Calendar({ onSelectDay, selectedDay }: CalendarProps) {
               text-center transition-all duration-150 border
               ${day.isToday
                 ? 'bg-accent/10 border-accent/30 ring-1 ring-accent/20'
-                : day.claimed
-                  ? 'bg-surface border-border opacity-60'
-                  : isSelected
-                    ? 'bg-accent/15 border-accent shadow-sm shadow-accent/10'
-                    : 'bg-surface border-border hover:border-accent/30 hover:bg-surface-hover cursor-pointer active:scale-95'
+                : isPending
+                  ? 'bg-yellow-500/5 border-yellow-500/30 opacity-80'
+                  : isDenied
+                    ? 'bg-red-500/5 border-red-500/20 opacity-50'
+                    : isApproved
+                      ? 'bg-surface border-border opacity-60'
+                      : isSelected
+                        ? 'bg-accent/15 border-accent shadow-sm shadow-accent/10'
+                        : 'bg-surface border-border hover:border-accent/30 hover:bg-surface-hover cursor-pointer active:scale-95'
               }
             `}
           >
@@ -70,20 +85,30 @@ export default function Calendar({ onSelectDay, selectedDay }: CalendarProps) {
 
             {day.isToday ? (
               <span className="text-[9px] font-bold text-accent mt-0.5">TODAY</span>
-            ) : day.claimed && day.farcasterPfp ? (
+            ) : isPending ? (
+              <span className="text-[9px] text-yellow-500 mt-0.5">Review</span>
+            ) : isDenied ? (
+              <span className="text-[9px] text-red-400/60 mt-0.5">Denied</span>
+            ) : isApproved ? (
               <div className="mt-0.5">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={day.farcasterPfp}
-                  alt=""
-                  className="w-5 h-5 rounded-full border border-accent/20 mx-auto"
-                />
-                <span className="text-[8px] text-muted truncate block w-full mt-0.5">
-                  {day.farcasterUsername}
-                </span>
+                {day.farcasterPfp ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={day.farcasterPfp}
+                      alt=""
+                      className="w-5 h-5 rounded-full border border-accent/20 mx-auto"
+                    />
+                    <span className="text-[8px] text-muted truncate block w-full mt-0.5">
+                      {day.farcasterUsername}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[9px] text-muted">
+                    {day.incentiveSol ? `${day.incentiveSol} SOL` : 'Taken'}
+                  </span>
+                )}
               </div>
-            ) : day.claimed ? (
-              <span className="text-[9px] text-muted mt-0.5">Taken</span>
             ) : (
               <span className="text-[9px] text-accent/50 mt-0.5">Open</span>
             )}

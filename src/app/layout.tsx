@@ -15,8 +15,8 @@ const geistMono = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'Sigil — Living NFT',
-  description: 'A living NFT that updates daily. Claim a day, set a link, all 1000 NFTs point to it.',
+  title: 'Sigil — Billboard That Pays Rent',
+  description: 'A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs. Holders check in daily to earn.',
 };
 
 export default function RootLayout({

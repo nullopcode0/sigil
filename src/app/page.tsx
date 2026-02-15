@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
-import { useWallet, useConnection } from '@solana/wallet-adapter-react';
-import { PublicKey } from '@solana/web3.js';
+import { useWallet } from '@solana/wallet-adapter-react';
+import { getCurrentEpochDay } from '@/lib/solana';
 
 const WalletMultiButton = dynamic(
   () => import('@solana/wallet-adapter-react-ui').then((m) => m.WalletMultiButton),
@@ -12,8 +12,9 @@ const WalletMultiButton = dynamic(
 import Calendar from '@/components/Calendar';
 import MintCard from '@/components/MintCard';
 import ClaimSheet from '@/components/ClaimSheet';
+import CheckIn from '@/components/CheckIn';
+import RewardsClaim from '@/components/RewardsClaim';
 import HowItWorksModal from '@/components/HowItWorksModal';
-import Analytics from '@/components/Analytics';
 
 function ThemeToggle() {
   const [dark, setDark] = useState(false);
@@ -51,37 +52,41 @@ function ThemeToggle() {
 }
 
 export default function Home() {
-  const { publicKey, connected } = useWallet();
-  const { connection } = useConnection();
+  const { connected } = useWallet();
   const [totalMinted, setTotalMinted] = useState(0);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [nftTokenAccount, setNftTokenAccount] = useState<string | undefined>();
+  const [platformFee, setPlatformFee] = useState(50_000_000); // default tier 1 (0.05 SOL)
   const [calendarKey, setCalendarKey] = useState(0);
+  const [todayImageUrl, setTodayImageUrl] = useState<string | undefined>();
 
-  // Check if connected wallet holds a Sigil NFT
+  const today = getCurrentEpochDay();
+
+  // Fetch today's billboard image + mint count
   useEffect(() => {
-    if (!publicKey) {
-      setNftTokenAccount(undefined);
-      return;
-    }
-
-    connection
-      .getParsedTokenAccountsByOwner(publicKey, {
-        programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
+    fetch('/api/calendar')
+      .then((r) => r.json())
+      .then((data) => {
+        if (typeof data.totalMinted === 'number') {
+          setTotalMinted(data.totalMinted);
+        }
+        const todayClaim = data.days?.find((d: { isToday: boolean }) => d.isToday);
+        if (todayClaim?.hasImage) {
+          const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+          if (baseUrl) {
+            setTodayImageUrl(`${baseUrl}/storage/v1/object/public/day-images/day-${todayClaim.epochDay}.png`);
+          }
+        }
       })
-      .then(({ value }) => {
-        const nftAccount = value.find((acc) => {
-          const info = acc.account.data.parsed.info;
-          return info.tokenAmount.uiAmount === 1 && info.tokenAmount.decimals === 0;
-        });
-        setNftTokenAccount(nftAccount?.pubkey.toString());
-      })
-      .catch(() => setNftTokenAccount(undefined));
-  }, [publicKey, connection]);
+      .catch(() => {});
+  }, [calendarKey]);
 
   const handleClaimed = useCallback(() => {
     setSelectedDay(null);
     setCalendarKey((k) => k + 1);
+  }, []);
+
+  const handlePlatformFeeLoaded = useCallback((fee: number) => {
+    setPlatformFee(fee);
   }, []);
 
   return (
@@ -92,7 +97,7 @@ export default function Home() {
           <h1 className="text-2xl font-extrabold tracking-tight text-foreground">
             <span className="text-accent">SIGIL</span>
           </h1>
-          <p className="text-xs text-muted mt-0.5">Living NFT &middot; sigil.bond</p>
+          <p className="text-xs text-muted mt-0.5">Billboard That Pays Rent &middot; sigil.bond</p>
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
@@ -102,31 +107,42 @@ export default function Home() {
 
       {/* Content */}
       <div className="w-full max-w-lg space-y-6">
+        {/* Check-In (prominent, top section) */}
+        <CheckIn epochDay={today} billboardImageUrl={todayImageUrl} />
+
         {/* Mint Card */}
         <MintCard
           totalMinted={totalMinted}
           onMinted={() => setTotalMinted((n) => n + 1)}
         />
 
+        {/* Rewards */}
+        <RewardsClaim epochDay={today} />
+
         {/* Calendar */}
         <section>
           <div className="flex items-center justify-between mb-3">
-            <h2 className="text-sm font-semibold text-foreground">Calendar</h2>
+            <h2 className="text-sm font-semibold text-foreground">Billboard Calendar</h2>
             <span className="text-xs text-muted font-mono">30 days</span>
           </div>
           <Calendar
             key={calendarKey}
             onSelectDay={setSelectedDay}
             selectedDay={selectedDay}
+            onPlatformFeeLoaded={handlePlatformFeeLoaded}
           />
         </section>
 
-        {/* Analytics */}
-        <Analytics />
-
         {/* Footer */}
-        <footer className="text-center text-[11px] text-muted/50 py-6">
-          sigil.bond &middot; Living NFT on Solana
+        <footer className="text-center py-6 space-y-2">
+          <div className="flex items-center justify-center gap-3 text-[11px] text-muted/50">
+            <a href="/terms" className="hover:text-muted transition-colors">Terms</a>
+            <span>&middot;</span>
+            <a href="/privacy" className="hover:text-muted transition-colors">Privacy</a>
+            <span>&middot;</span>
+            <span>sigil.bond</span>
+          </div>
+          <p className="text-[10px] text-muted/30">Billboard NFT on Solana &middot; devnet</p>
         </footer>
       </div>
 
@@ -139,7 +155,7 @@ export default function Home() {
           epochDay={selectedDay}
           onClose={() => setSelectedDay(null)}
           onClaimed={handleClaimed}
-          nftTokenAccount={nftTokenAccount}
+          platformFee={platformFee}
         />
       )}
     </main>

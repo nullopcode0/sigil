@@ -1,13 +1,54 @@
 import { ImageResponse } from 'next/og';
-import { supabase } from '@/lib/supabase';
+import { getServiceClient } from '@/lib/supabase';
 import { getCurrentEpochDay } from '@/lib/solana';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   const today = getCurrentEpochDay();
+  const supabase = getServiceClient();
 
-  // Load font
+  // Get today's claim
+  let advertiser = 'No one yet';
+  let pfpUrl = '';
+  let checkInCount = 0;
+  let billboardImageUrl = '';
+  let incentiveSol = '0';
+
+  try {
+    const { data: claim } = await supabase
+      .from('day_claims')
+      .select('*')
+      .eq('epoch_day', today)
+      .eq('moderation_status', 'approved')
+      .single();
+
+    if (claim) {
+      advertiser = claim.farcaster_username || claim.claimer_wallet?.slice(0, 8) + '...';
+      pfpUrl = claim.farcaster_pfp_url || '';
+      billboardImageUrl = claim.image_url || '';
+      incentiveSol = ((claim.incentive_lamports || 0) / 1e9).toFixed(2);
+    }
+
+    const { count } = await supabase
+      .from('check_ins')
+      .select('*', { count: 'exact', head: true })
+      .eq('epoch_day', today);
+    checkInCount = count || 0;
+  } catch { /* use defaults */ }
+
+  // If there's an uploaded billboard image, redirect to it
+  if (billboardImageUrl) {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: billboardImageUrl,
+        'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+      },
+    });
+  }
+
+  // Otherwise generate a default OG image
   let fontData: ArrayBuffer | null = null;
   try {
     const fontRes = await fetch(
@@ -15,30 +56,6 @@ export async function GET() {
     );
     if (fontRes.ok) fontData = await fontRes.arrayBuffer();
   } catch { /* fallback */ }
-
-  // Get today's claim
-  let controller = 'No one yet';
-  let pfpUrl = '';
-  let clickCount = 0;
-
-  try {
-    const { data: claim } = await supabase
-      .from('day_claims')
-      .select('*')
-      .eq('epoch_day', today)
-      .single();
-
-    if (claim) {
-      controller = claim.farcaster_username || claim.claimer_wallet?.slice(0, 8) + '...';
-      pfpUrl = claim.farcaster_pfp_url || '';
-    }
-
-    const { count } = await supabase
-      .from('clicks')
-      .select('*', { count: 'exact', head: true })
-      .eq('epoch_day', today);
-    clickCount = count || 0;
-  } catch { /* use defaults */ }
 
   const fontFamily = fontData ? 'Space Grotesk' : 'sans-serif';
   const dateStr = new Date(today * 86400 * 1000).toLocaleDateString('en-US', {
@@ -63,14 +80,12 @@ export async function GET() {
           padding: 60,
         }}
       >
-        {/* Title */}
         <div style={{ display: 'flex', alignItems: 'center', marginBottom: 40 }}>
           <span style={{ fontSize: 72, fontWeight: 800, color: '#a78bfa', letterSpacing: -2 }}>
             SIGIL
           </span>
         </div>
 
-        {/* Controller section */}
         <div
           style={{
             display: 'flex',
@@ -114,13 +129,12 @@ export async function GET() {
           )}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <span style={{ fontSize: 16, color: 'rgba(255,255,255,0.5)', marginBottom: 4 }}>
-              Today&apos;s Controller
+              Today&apos;s Advertiser
             </span>
-            <span style={{ fontSize: 32, fontWeight: 700 }}>{controller}</span>
+            <span style={{ fontSize: 32, fontWeight: 700 }}>{advertiser}</span>
           </div>
         </div>
 
-        {/* Stats row */}
         <div style={{ display: 'flex', gap: 40 }}>
           <div
             style={{
@@ -133,8 +147,22 @@ export async function GET() {
               border: '1px solid rgba(167, 139, 250, 0.2)',
             }}
           >
-            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>Clicks</span>
-            <span style={{ fontSize: 36, fontWeight: 700, color: '#a78bfa' }}>{clickCount}</span>
+            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>Check-ins</span>
+            <span style={{ fontSize: 36, fontWeight: 700, color: '#a78bfa' }}>{checkInCount}</span>
+          </div>
+          <div
+            style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              padding: '16px 32px',
+              backgroundColor: 'rgba(167, 139, 250, 0.08)',
+              borderRadius: 16,
+              border: '1px solid rgba(167, 139, 250, 0.2)',
+            }}
+          >
+            <span style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)' }}>Pool</span>
+            <span style={{ fontSize: 24, fontWeight: 600 }}>{incentiveSol} SOL</span>
           </div>
           <div
             style={{
@@ -152,7 +180,6 @@ export async function GET() {
           </div>
         </div>
 
-        {/* Footer */}
         <div
           style={{
             display: 'flex',
@@ -161,7 +188,7 @@ export async function GET() {
             color: 'rgba(255,255,255,0.3)',
           }}
         >
-          Living NFT &middot; 1000 editions
+          Billboard NFT &middot; 10,000 editions &middot; sigil.bond
         </div>
       </div>
     ),

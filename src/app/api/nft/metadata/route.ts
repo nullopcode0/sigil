@@ -1,39 +1,43 @@
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getServiceClient } from '@/lib/supabase';
 import { getCurrentEpochDay } from '@/lib/solana';
 
 export async function GET() {
   try {
     const today = getCurrentEpochDay();
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+    const supabase = getServiceClient();
 
-    // Look up today's claim
+    // Look up today's approved claim
     const { data: claim } = await supabase
       .from('day_claims')
       .select('*')
       .eq('epoch_day', today)
+      .eq('moderation_status', 'approved')
       .single();
 
-    // Count clicks for today
-    const { count: clickCount } = await supabase
-      .from('clicks')
+    // Count check-ins for today
+    const { count: checkInCount } = await supabase
+      .from('check_ins')
       .select('*', { count: 'exact', head: true })
       .eq('epoch_day', today);
 
-    const controller = claim?.farcaster_username || 'No one yet';
+    const advertiser = claim?.farcaster_username || claim?.claimer_wallet?.slice(0, 8) || 'No one';
+    const incentiveSol = claim ? (claim.incentive_lamports / 1e9).toFixed(2) : '0';
 
     return NextResponse.json(
       {
         name: 'Sigil',
         symbol: 'SIGIL',
-        description: `A living NFT. Today's controller: ${controller}. ${clickCount || 0} clicks so far.`,
+        description: `A living NFT billboard. Today's advertiser: ${advertiser}. ${incentiveSol} SOL pool. ${checkInCount || 0} checked in.`,
         image: `${baseUrl}/api/nft/image`,
-        external_url: `${baseUrl}/api/redirect?d=${today}`,
+        external_url: baseUrl,
         attributes: [
-          { trait_type: 'Type', value: 'Living NFT' },
-          { trait_type: 'Supply', value: '1000' },
-          { trait_type: 'Controller', value: controller },
-          { trait_type: 'Clicks Today', value: String(clickCount || 0) },
+          { trait_type: 'Type', value: 'Billboard NFT' },
+          { trait_type: 'Supply', value: '10,000' },
+          { trait_type: 'Advertiser', value: advertiser },
+          { trait_type: 'Incentive Pool', value: `${incentiveSol} SOL` },
+          { trait_type: 'Check-ins Today', value: String(checkInCount || 0) },
           { trait_type: 'Epoch Day', value: String(today) },
         ],
       },
@@ -49,9 +53,9 @@ export async function GET() {
       {
         name: 'Sigil',
         symbol: 'SIGIL',
-        description: 'A living NFT that updates daily.',
-        image: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/nft/image`,
-        attributes: [{ trait_type: 'Type', value: 'Living NFT' }],
+        description: 'A living NFT billboard. Check in daily to earn.',
+        image: `${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/sigil.png`,
+        attributes: [{ trait_type: 'Type', value: 'Billboard NFT' }],
       },
       { status: 200 }
     );
