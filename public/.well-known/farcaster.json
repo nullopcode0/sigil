@@ -1,0 +1,29 @@
+{
+  "accountAssociation": {
+    "header": "eyJmaWQiOjg0MjMwMSwidHlwZSI6ImN1c3RvZHkiLCJrZXkiOiIweDc1QmNBMUVlZkU4QjYwMDkwZjU2OTRBYzdEYTE4YzMyNjVkRUE4QzUifQ",
+    "payload": "eyJkb21haW4iOiJzaWdpbC5ib25kIn0",
+    "signature": "NEEDS_SIGNING_FOR_SIGIL_BOND"
+  },
+  "miniapp": {
+    "version": "1",
+    "name": "Sigil",
+    "homeUrl": "https://sigil.bond",
+    "iconUrl": "https://sigil.bond/sigil.png",
+    "splashImageUrl": "https://sigil.bond/sigil.png",
+    "splashBackgroundColor": "#0a0f1a",
+    "subtitle": "Billboard That Pays Rent",
+    "description": "A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs. Holders check in daily to earn SOL.",
+    "primaryCategory": "developer-tools",
+    "tags": ["nft", "solana", "billboard", "advertising", "defi"],
+    "heroImageUrl": "https://sigil.bond/api/nft/image",
+    "tagline": "Billboard That Pays Rent",
+    "ogTitle": "Sigil — Billboard That Pays Rent",
+    "ogDescription": "A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs.",
+    "ogImageUrl": "https://sigil.bond/api/nft/image",
+    "requiredChains": ["solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp"],
+    "requiredCapabilities": ["wallet.getSolanaProvider"],
+    "imageUrl": "https://sigil.bond/api/nft/image",
+    "buttonTitle": "Open Sigil",
+    "webhookUrl": ""
+  }
+}

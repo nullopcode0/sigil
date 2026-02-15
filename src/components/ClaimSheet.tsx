@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction, TransactionInstruction, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { useFrameSDK } from '@/components/FrameSDK';
 
 const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_SIGIL_PROGRAM_ID || 'GTc3X6f7CYSb9oAj25przd4FpyUuKhNHmh2ZhQMDXmy8'
@@ -42,6 +43,7 @@ function getDayClaimPda(epochDay: number): PublicKey {
 export default function ClaimSheet({ epochDay, onClose, onClaimed, platformFee }: ClaimSheetProps) {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
+  const { context, isInMiniApp } = useFrameSDK();
   const [incentiveSol, setIncentiveSol] = useState('0.1');
   const [linkUrl, setLinkUrl] = useState('');
   const [farcasterUsername, setFarcasterUsername] = useState('');
@@ -50,6 +52,13 @@ export default function ClaimSheet({ epochDay, onClose, onClaimed, platformFee }
   const [claiming, setClaiming] = useState(false);
   const [status, setStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-populate Farcaster username from mini app context
+  useEffect(() => {
+    if (isInMiniApp && context?.user?.username && !farcasterUsername) {
+      setFarcasterUsername(context.user.username);
+    }
+  }, [isInMiniApp, context, farcasterUsername]);
 
   const dateStr = new Date(epochDay * 86400 * 1000).toLocaleDateString('en-US', {
     weekday: 'long',

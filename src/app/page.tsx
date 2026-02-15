@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { getCurrentEpochDay } from '@/lib/solana';
+import { useFrameSDK } from '@/components/FrameSDK';
 
 const WalletMultiButton = dynamic(
   () => import('@solana/wallet-adapter-react-ui').then((m) => m.WalletMultiButton),
@@ -53,6 +54,7 @@ function ThemeToggle() {
 
 export default function Home() {
   const { connected } = useWallet();
+  const { context, isLoaded, isInMiniApp } = useFrameSDK();
   const [totalMinted, setTotalMinted] = useState(0);
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
   const [platformFee, setPlatformFee] = useState(50_000_000); // default tier 1 (0.05 SOL)
@@ -60,6 +62,7 @@ export default function Home() {
   const [todayImageUrl, setTodayImageUrl] = useState<string | undefined>();
 
   const today = getCurrentEpochDay();
+  const fcUser = context?.user;
 
   // Fetch today's billboard image + mint count
   useEffect(() => {
@@ -89,6 +92,18 @@ export default function Home() {
     setPlatformFee(fee);
   }, []);
 
+  // Show loading while detecting Farcaster context
+  if (!isLoaded) {
+    return (
+      <main className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-accent/30 border-t-accent rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-xs text-muted">Loading Sigil...</p>
+        </div>
+      </main>
+    );
+  }
+
   return (
     <main className="min-h-screen flex flex-col items-center px-4 py-6 sm:py-10">
       {/* Header */}
@@ -101,7 +116,19 @@ export default function Home() {
         </div>
         <div className="flex items-center gap-2">
           <ThemeToggle />
-          <WalletMultiButton />
+          {isInMiniApp && fcUser ? (
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-surface border border-border">
+              {fcUser.pfpUrl && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={fcUser.pfpUrl} alt="" className="w-6 h-6 rounded-full" />
+              )}
+              <span className="text-sm font-medium text-foreground">
+                {fcUser.displayName || fcUser.username || `FID ${fcUser.fid}`}
+              </span>
+            </div>
+          ) : (
+            <WalletMultiButton />
+          )}
         </div>
       </header>
 

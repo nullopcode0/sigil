@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import './globals.css';
 import WalletProvider from '@/components/WalletProvider';
+import { FrameSDKProvider } from '@/components/FrameSDK';
 
 const geistSans = localFont({
   src: './fonts/GeistVF.woff',
@@ -14,9 +15,53 @@ const geistMono = localFont({
   weight: '100 900',
 });
 
+const APP_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://sigil.bond';
+
 export const metadata: Metadata = {
   title: 'Sigil — Billboard That Pays Rent',
   description: 'A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs. Holders check in daily to earn.',
+  openGraph: {
+    title: 'Sigil — Billboard That Pays Rent',
+    description: 'A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs.',
+    images: [`${APP_URL}/api/nft/image`],
+    url: APP_URL,
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Sigil — Billboard That Pays Rent',
+    description: 'A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs.',
+    images: [`${APP_URL}/api/nft/image`],
+  },
+  other: {
+    'fc:miniapp': JSON.stringify({
+      version: '1',
+      imageUrl: `${APP_URL}/api/nft/image`,
+      button: {
+        title: 'Open Sigil',
+        action: {
+          type: 'launch_miniapp',
+          name: 'Sigil',
+          url: APP_URL,
+          splashImageUrl: `${APP_URL}/sigil.png`,
+          splashBackgroundColor: '#0a0f1a',
+        },
+      },
+    }),
+    'fc:frame': JSON.stringify({
+      version: '1',
+      imageUrl: `${APP_URL}/api/nft/image`,
+      button: {
+        title: 'Open Sigil',
+        action: {
+          type: 'launch_frame',
+          name: 'Sigil',
+          url: APP_URL,
+          splashImageUrl: `${APP_URL}/sigil.png`,
+          splashBackgroundColor: '#0a0f1a',
+        },
+      },
+    }),
+  },
 };
 
 export default function RootLayout({
@@ -34,7 +79,9 @@ export default function RootLayout({
         />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased bg-background text-foreground`}>
-        <WalletProvider>{children}</WalletProvider>
+        <FrameSDKProvider>
+          <WalletProvider>{children}</WalletProvider>
+        </FrameSDKProvider>
       </body>
     </html>
   );
