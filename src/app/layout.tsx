@@ -20,6 +20,12 @@ const APP_URL = process.env.NEXT_PUBLIC_BASE_URL || 'https://sigil.bond';
 export const metadata: Metadata = {
   title: 'Sigil — Billboard That Pays Rent',
   description: 'A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs. Holders check in daily to earn.',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Sigil',
+  },
   openGraph: {
     title: 'Sigil — Billboard That Pays Rent',
     description: 'A living NFT billboard on Solana. Claim a day, display your image across 10,000 NFTs.',
@@ -72,9 +78,12 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        <meta name="theme-color" content="#0a0f1a" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var d=document.documentElement;var m=localStorage.getItem('sigil-theme');if(m==='dark'||(!m&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.classList.add('dark')}else{d.classList.remove('dark')}}catch(e){}})()`,
+            __html: `(function(){try{var d=document.documentElement;var m=localStorage.getItem('sigil-theme');if(m==='dark'||(!m&&window.matchMedia('(prefers-color-scheme:dark)').matches)){d.classList.add('dark')}else{d.classList.remove('dark')}}catch(e){}})();if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js')}`,
           }}
         />
       </head>
