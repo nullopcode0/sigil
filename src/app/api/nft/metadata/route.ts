@@ -1,1 +1,60 @@
-þÙ©þÈ ŠVå¡¾mÆ
+import { NextResponse } from 'next/server';
+import { getServiceClient } from '@/lib/supabase';
+import { getCurrentEpochDay } from '@/lib/solana';
+
+export const dynamic = 'force-dynamic';
+
+export async function GET() {
+  const today = getCurrentEpochDay();
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
+  const supabase = getServiceClient();
+
+  let advertiser = 'No one';
+  let incentiveSol = '0';
+  let checkInCount = 0;
+
+  try {
+    const { data: claim } = await supabase
+      .from('day_claims')
+      .select('*')
+      .eq('epoch_day', today)
+      .eq('moderation_status', 'approved')
+      .maybeSingle();
+
+    if (claim) {
+      advertiser = claim.farcaster_username || claim.claimer_wallet?.slice(0, 8) || 'No one';
+      incentiveSol = (claim.incentive_lamports / 1e9).toFixed(2);
+    }
+  } catch { /* ignore claim errors */ }
+
+  try {
+    const { count } = await supabase
+      .from('check_ins')
+      .select('*', { count: 'exact', head: true })
+      .eq('epoch_day', today);
+    checkInCount = count ?? 0;
+  } catch { /* ignore count errors */ }
+
+  return NextResponse.json(
+    {
+      name: 'Sigil',
+      symbol: 'SIGIL',
+      description: `A living NFT billboard. Today's advertiser: ${advertiser}. ${incentiveSol} SOL pool. ${checkInCount} checked in.`,
+      image: `${baseUrl}/api/nft/image`,
+      external_url: baseUrl,
+      attributes: [
+        { trait_type: 'Type', value: 'Billboard NFT' },
+        { trait_type: 'Supply', value: '10,000' },
+        { trait_type: 'Advertiser', value: advertiser },
+        { trait_type: 'Incentive Pool', value: `${incentiveSol} SOL` },
+        { trait_type: 'Check-ins Today', value: String(checkInCount) },
+        { trait_type: 'Epoch Day', value: String(today) },
+      ],
+    },
+    {
+      headers: {
+        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+      },
+    }
+  );
+}

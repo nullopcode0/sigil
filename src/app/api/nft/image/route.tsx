@@ -46,15 +46,22 @@ export async function GET() {
     checkInCount = count ?? 0;
   } catch { /* ignore count errors */ }
 
-  // If there's an uploaded billboard image, redirect to it
+  // If there's an uploaded billboard image, proxy it directly
+  // (Solana wallets/NFT renderers don't follow HTTP redirects)
   if (billboardImageUrl) {
-    return new Response(null, {
-      status: 302,
-      headers: {
-        Location: billboardImageUrl,
-        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
-      },
-    });
+    try {
+      const imgRes = await fetch(billboardImageUrl);
+      if (imgRes.ok) {
+        const imgBytes = await imgRes.arrayBuffer();
+        return new Response(imgBytes, {
+          status: 200,
+          headers: {
+            'Content-Type': imgRes.headers.get('Content-Type') || 'image/png',
+            'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+          },
+        });
+      }
+    } catch { /* fall through to generated image */ }
   }
 
   // Otherwise generate a default OG image
