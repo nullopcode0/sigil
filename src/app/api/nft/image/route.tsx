@@ -43,7 +43,7 @@ export async function GET() {
       status: 302,
       headers: {
         Location: billboardImageUrl,
-        'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
       },
     });
   }
@@ -196,7 +196,7 @@ export async function GET() {
       width: 800,
       height: 800,
       headers: {
-        'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
       },
       ...(fontData
         ? {
