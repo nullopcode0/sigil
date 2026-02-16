@@ -12,6 +12,7 @@ export async function GET() {
   let advertiser = 'No one';
   let incentiveSol = '0';
   let checkInCount = 0;
+  let billboardImageUrl = '';
 
   try {
     const { data: claim } = await supabase
@@ -24,6 +25,13 @@ export async function GET() {
     if (claim) {
       advertiser = claim.farcaster_username || claim.claimer_wallet?.slice(0, 8) || 'No one';
       incentiveSol = (claim.incentive_lamports / 1e9).toFixed(2);
+      billboardImageUrl = claim.image_url || '';
+      if (!billboardImageUrl) {
+        const storageBase = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (storageBase) {
+          billboardImageUrl = `${storageBase}/storage/v1/object/public/day-images/day-${today}.png`;
+        }
+      }
     }
   } catch { /* ignore claim errors */ }
 
@@ -35,12 +43,15 @@ export async function GET() {
     checkInCount = count ?? 0;
   } catch { /* ignore count errors */ }
 
+  // Use direct Supabase image URL when available (wallets don't follow redirects well)
+  const imageUrl = billboardImageUrl || `${baseUrl}/api/nft/image`;
+
   return NextResponse.json(
     {
       name: 'Sigil',
       symbol: 'SIGIL',
       description: `A living NFT billboard. Today's advertiser: ${advertiser}. ${incentiveSol} SOL pool. ${checkInCount} checked in.`,
-      image: `${baseUrl}/api/nft/image`,
+      image: imageUrl,
       external_url: baseUrl,
       attributes: [
         { trait_type: 'Type', value: 'Billboard NFT' },
