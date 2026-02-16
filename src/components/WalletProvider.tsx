@@ -4,20 +4,29 @@ import { useMemo, ReactNode } from 'react';
 import { ConnectionProvider, WalletProvider as SolanaWalletProvider } from '@solana/wallet-adapter-react';
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { PhantomWalletAdapter, SolflareWalletAdapter } from '@solana/wallet-adapter-wallets';
+import { FarcasterSolanaProvider } from '@farcaster/mini-app-solana';
 import { useFrameSDK } from './FrameSDK';
-// Side-effect: registers Farcaster wallet via Wallet Standard when in mini app
-import '@farcaster/mini-app-solana';
 
 export default function WalletProvider({ children }: { children: ReactNode }) {
   const endpoint = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || 'https://api.devnet.solana.com';
-  const { isInMiniApp } = useFrameSDK();
-
-  // In Farcaster: empty array — Farcaster wallet auto-registers via Wallet Standard
-  // Outside: standard Phantom + Solflare adapters
+  const { isInMiniApp, isLoaded } = useFrameSDK();
   const wallets = useMemo(
-    () => isInMiniApp ? [] : [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
-    [isInMiniApp]
+    () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
+    []
   );
+
+  // Wait for FrameSDK to determine context (splash screen covers in Farcaster)
+  if (!isLoaded) return null;
+
+  // In Farcaster: FarcasterSolanaProvider handles wallet registration,
+  // auto-connect, and the correct localStorage key ('fcWalletName')
+  if (isInMiniApp) {
+    return (
+      <FarcasterSolanaProvider endpoint={endpoint}>
+        <WalletModalProvider>{children}</WalletModalProvider>
+      </FarcasterSolanaProvider>
+    );
+  }
 
   return (
     <ConnectionProvider endpoint={endpoint}>
