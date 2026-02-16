@@ -24,6 +24,6 @@
     "requiredCapabilities": ["wallet.getSolanaProvider"],
     "imageUrl": "https://www.sigil.bond/api/nft/image",
     "buttonTitle": "Open Sigil",
-    "webhookUrl": "https://www.sigil.bond/api/webhook/farcaster"
+    "webhookUrl": "https://api.neynar.com/f/app/d227f668-02e1-493c-8197-416e642836b7/event"
   }
 }
