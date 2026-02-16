@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { getServiceClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
 
@@ -11,38 +11,31 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ checkedIn: false, totalCheckedIn: 0 });
   }
 
-  // Check if this wallet already checked in today
-  const { data: checkIn } = await supabase
+  const supabase = getServiceClient();
+
+  // Fetch all check-ins for this day (small dataset, avoids PostgREST count bug)
+  const { data: dayCheckIns } = await supabase
     .from('check_ins')
-    .select('weight')
+    .select('wallet, weight, checked_in_at')
     .eq('epoch_day', epochDay)
-    .eq('wallet', wallet)
-    .single();
+    .order('checked_in_at', { ascending: true });
 
-  // Get total check-ins for today
-  const { count } = await supabase
-    .from('check_ins')
-    .select('*', { count: 'exact', head: true })
-    .eq('epoch_day', epochDay);
+  const all = dayCheckIns || [];
+  const totalCheckedIn = all.length;
+  const myCheckIn = all.find((c) => c.wallet === wallet);
 
-  if (checkIn) {
-    // Find their position
-    const { count: beforeCount } = await supabase
-      .from('check_ins')
-      .select('*', { count: 'exact', head: true })
-      .eq('epoch_day', epochDay)
-      .lt('id', checkIn.weight); // This is approximate — let's use checked_in_at
-
+  if (myCheckIn) {
+    const position = all.indexOf(myCheckIn) + 1;
     return NextResponse.json({
       checkedIn: true,
-      weight: checkIn.weight,
-      position: (beforeCount ?? 0) + 1,
-      totalCheckedIn: count ?? 0,
+      weight: myCheckIn.weight,
+      position,
+      totalCheckedIn,
     });
   }
 
   return NextResponse.json({
     checkedIn: false,
-    totalCheckedIn: count ?? 0,
+    totalCheckedIn,
   });
 }
