@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { getCurrentEpochDay, getProgram, getProtocolPda } from '@/lib/solana';
 
+export const dynamic = 'force-dynamic';
+
 // Platform fee tiers (must match on-chain)
 const TIER_PRICES = [
   { max: 10, price: 50_000_000 },     // 0.05 SOL
@@ -20,7 +22,7 @@ function getTierPrice(totalClaims: number): number {
 export async function GET() {
   try {
     const today = getCurrentEpochDay();
-    const windowStart = today + 1; // start from tomorrow (today can't be claimed)
+    const windowStart = today; // include today for billboard display
     const windowEnd = today + 30;
 
     // Fetch all claims in the 30-day window
@@ -56,7 +58,7 @@ export async function GET() {
         epochDay: d,
         date: date.toISOString().split('T')[0],
         label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        isToday: false,
+        isToday: d === today,
         claimed: !!claim,
         moderationStatus: status,
         incentiveSol: claim && isApproved ? (claim.incentive_lamports / 1e9).toFixed(2) : null,

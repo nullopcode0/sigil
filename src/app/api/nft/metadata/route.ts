@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { getServiceClient } from '@/lib/supabase';
 import { getCurrentEpochDay } from '@/lib/solana';
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
   try {
     const today = getCurrentEpochDay();
@@ -43,7 +45,7 @@ export async function GET() {
       },
       {
         headers: {
-          'Cache-Control': 'public, max-age=300, s-maxage=300, stale-while-revalidate=60',
+          'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
         },
       }
     );
