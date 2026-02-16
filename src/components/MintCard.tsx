@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { SystemProgram, Transaction, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
+import { toast } from 'sonner';
 
 const MINT_PRICE_SOL = 0.01;
 const MAX_SUPPLY = 10_000;
@@ -19,7 +20,7 @@ export default function MintCard({ totalMinted, onMinted }: MintCardProps) {
   const { connection } = useConnection();
   const { publicKey, sendTransaction } = useWallet();
   const [minting, setMinting] = useState(false);
-  const [status, setStatus] = useState('');
+  const [lastTxSig, setLastTxSig] = useState('');
 
   const isSoldOut = totalMinted >= MAX_SUPPLY;
   const progress = (totalMinted / MAX_SUPPLY) * 100;
@@ -27,7 +28,7 @@ export default function MintCard({ totalMinted, onMinted }: MintCardProps) {
   async function handleMint() {
     if (!publicKey || isSoldOut) return;
     setMinting(true);
-    setStatus('Sending payment...');
+    const toastId = toast.loading('Sending payment...');
 
     try {
       const tx = new Transaction().add(
@@ -41,7 +42,7 @@ export default function MintCard({ totalMinted, onMinted }: MintCardProps) {
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
       const signature = await sendTransaction(tx, connection);
-      setStatus('Minting NFT...');
+      toast.loading('Minting NFT...', { id: toastId });
 
       const res = await fetch('/api/mint', {
         method: 'POST',
@@ -52,12 +53,19 @@ export default function MintCard({ totalMinted, onMinted }: MintCardProps) {
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || 'Mint failed');
 
-      setStatus(`Sigil #${data.tokenId} minted`);
+      setLastTxSig(signature);
+      toast.success(`Sigil #${data.tokenId} minted`, {
+        id: toastId,
+        description: `TX: ${signature.slice(0, 16)}...`,
+        action: {
+          label: 'View',
+          onClick: () => window.open(`https://explorer.solana.com/tx/${signature}?cluster=devnet`, '_blank'),
+        },
+        duration: 8000,
+      });
       onMinted();
-      setTimeout(() => setStatus(''), 3000);
     } catch (err) {
-      setStatus((err as Error).message);
-      setTimeout(() => setStatus(''), 4000);
+      toast.error((err as Error).message, { id: toastId });
     } finally {
       setMinting(false);
     }
@@ -117,11 +125,20 @@ export default function MintCard({ totalMinted, onMinted }: MintCardProps) {
           <span>{totalMinted.toLocaleString()} minted</span>
           <span>10,000</span>
         </div>
-
-        {status && (
-          <div className="mt-3 text-xs text-center text-accent truncate">{status}</div>
-        )}
       </div>
+
+      {lastTxSig && (
+        <div className="px-4 pb-3 -mt-1" onClick={(e) => e.stopPropagation()}>
+          <a
+            href={`https://explorer.solana.com/tx/${lastTxSig}?cluster=devnet`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="block text-[10px] text-accent/70 hover:text-accent text-center truncate"
+          >
+            TX: {lastTxSig.slice(0, 20)}...
+          </a>
+        </div>
+      )}
     </button>
   );
 }

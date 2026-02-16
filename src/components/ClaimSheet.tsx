@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useConnection, useWallet } from '@solana/wallet-adapter-react';
 import { PublicKey, Transaction, TransactionInstruction, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { useFrameSDK } from '@/components/FrameSDK';
+import { toast } from 'sonner';
 
 const PROGRAM_ID = new PublicKey(
   process.env.NEXT_PUBLIC_SIGIL_PROGRAM_ID || 'GTc3X6f7CYSb9oAj25przd4FpyUuKhNHmh2ZhQMDXmy8'
@@ -50,7 +51,6 @@ export default function ClaimSheet({ epochDay, onClose, onClaimed, platformFee }
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [claiming, setClaiming] = useState(false);
-  const [status, setStatus] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-populate Farcaster username from mini app context
@@ -75,23 +75,22 @@ export default function ClaimSheet({ epochDay, onClose, onClaimed, platformFee }
     const file = e.target.files?.[0];
     if (!file) return;
     if (file.size > 5 * 1024 * 1024) {
-      setStatus('Image must be under 5MB');
+      toast.error('Image must be under 5MB');
       return;
     }
     if (!file.type.startsWith('image/')) {
-      setStatus('Must be JPEG or PNG');
+      toast.error('Must be JPEG or PNG');
       return;
     }
     setImageFile(file);
     setImagePreview(URL.createObjectURL(file));
-    setStatus('');
   }
 
   async function handleClaim() {
     if (!publicKey || !incentiveValid) return;
 
     setClaiming(true);
-    setStatus('Sign transaction...');
+    const toastId = toast.loading('Sign transaction...');
 
     try {
       const incentiveLamports = Math.round(incentiveNum * LAMPORTS_PER_SOL);
@@ -121,7 +120,7 @@ export default function ClaimSheet({ epochDay, onClose, onClaimed, platformFee }
       tx.recentBlockhash = (await connection.getLatestBlockhash()).blockhash;
 
       const signature = await sendTransaction(tx, connection);
-      setStatus('Confirming on-chain...');
+      toast.loading('Confirming on-chain...', { id: toastId });
 
       // POST to API with FormData (supports image upload)
       const formData = new FormData();
@@ -140,25 +139,36 @@ export default function ClaimSheet({ epochDay, onClose, onClaimed, platformFee }
       const result = await res.json();
       if (!res.ok) throw new Error(result.error || 'Claim failed');
 
+      toast.success('Day claimed!', {
+        id: toastId,
+        description: `TX: ${signature.slice(0, 16)}...`,
+        action: {
+          label: 'View',
+          onClick: () => window.open(`https://explorer.solana.com/tx/${signature}?cluster=devnet`, '_blank'),
+        },
+        duration: 8000,
+      });
       onClaimed();
       onClose();
     } catch (err) {
       const msg = (err as Error).message || '';
+      let errorMsg: string;
       if (msg.includes('User rejected') || msg.includes('rejected the request')) {
-        setStatus('Transaction cancelled');
+        errorMsg = 'Transaction cancelled';
       } else if (msg.includes('already in use') || msg.includes('0x0')) {
-        setStatus('This day has already been claimed');
+        errorMsg = 'This day has already been claimed';
       } else if (msg.includes('insufficient') || msg.includes('not enough')) {
-        setStatus('Insufficient SOL balance');
+        errorMsg = 'Insufficient SOL balance';
       } else if (msg.includes('DayNotFuture')) {
-        setStatus('Cannot claim today or past days');
+        errorMsg = 'Cannot claim today or past days';
       } else if (msg.includes('DayTooFarAhead')) {
-        setStatus('Day is more than 30 days ahead');
+        errorMsg = 'Day is more than 30 days ahead';
       } else if (msg.includes('IncentiveTooLow')) {
-        setStatus(`Incentive must be at least ${MIN_INCENTIVE_SOL} SOL`);
+        errorMsg = `Incentive must be at least ${MIN_INCENTIVE_SOL} SOL`;
       } else {
-        setStatus(msg || 'Transaction failed');
+        errorMsg = msg || 'Transaction failed';
       }
+      toast.error(errorMsg, { id: toastId });
     } finally {
       setClaiming(false);
     }
@@ -277,10 +287,6 @@ export default function ClaimSheet({ epochDay, onClose, onClaimed, platformFee }
           >
             {claiming ? 'Claiming...' : `Claim Day — ${totalCostSol.toFixed(2)} SOL`}
           </button>
-
-          {status && (
-            <div className="text-xs text-center text-accent">{status}</div>
-          )}
         </div>
       </div>
     </div>

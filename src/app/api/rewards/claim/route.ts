@@ -4,18 +4,34 @@ import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { getConnection, getServerKeypair, getCurrentEpochDay, pollConfirmation } from '@/lib/solana';
 import { getServiceClient } from '@/lib/supabase';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 3 requests per minute per IP (claims involve SOL transfers)
+    const ip = getClientIp(request.headers);
+    const rl = rateLimit(`claim:${ip}`, { limit: 3, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const { wallet, signature, message } = await request.json();
     if (!wallet || !signature || !message) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Verify signature
-    const expectedMessage = `Sigil claim rewards: ${getCurrentEpochDay()}`;
-    if (message !== expectedMessage) {
+    // Validate message: "Sigil claim rewards: {epochDay}:{timestamp}"
+    const match = message.match(/^Sigil claim rewards: (\d+):(\d+)$/);
+    if (!match) {
+      return NextResponse.json({ error: 'Invalid message format' }, { status: 400 });
+    }
+    const msgDay = parseInt(match[1], 10);
+    const msgTimestamp = parseInt(match[2], 10);
+    if (msgDay !== getCurrentEpochDay()) {
       return NextResponse.json({ error: 'Invalid or expired claim message' }, { status: 400 });
+    }
+    if (Math.abs(Date.now() - msgTimestamp) > 5 * 60 * 1000) {
+      return NextResponse.json({ error: 'Message expired, please try again' }, { status: 400 });
     }
 
     const publicKey = new PublicKey(wallet);

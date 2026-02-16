@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWallet } from '@solana/wallet-adapter-react';
 import bs58 from 'bs58';
+import { toast } from 'sonner';
 
 interface CheckInProps {
   epochDay: number;
@@ -17,7 +18,6 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
   const [weight, setWeight] = useState(1);
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [status, setStatus] = useState('');
 
   const checkStatus = useCallback(async () => {
     if (!publicKey) { setChecking(false); return; }
@@ -44,14 +44,14 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
   async function handleCheckIn() {
     if (!publicKey || !signMessage) return;
     setLoading(true);
-    setStatus('Sign message...');
+    const toastId = toast.loading('Sign message...');
 
     try {
-      const message = `Sigil check-in: ${epochDay}`;
+      const message = `Sigil check-in: ${epochDay}:${Date.now()}`;
       const messageBytes = new TextEncoder().encode(message);
       const sig = await signMessage(messageBytes);
 
-      setStatus('Recording...');
+      toast.loading('Recording...', { id: toastId });
 
       const res = await fetch('/api/check-in', {
         method: 'POST',
@@ -70,10 +70,9 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
       setPosition(data.position);
       setWeight(data.weight);
       setTotalCheckedIn(data.totalCheckedIn);
-      setStatus('');
+      toast.success(`Checked in! #${data.position} — ${data.weight}x`, { id: toastId });
     } catch (err) {
-      setStatus((err as Error).message);
-      setTimeout(() => setStatus(''), 4000);
+      toast.error((err as Error).message, { id: toastId });
     } finally {
       setLoading(false);
     }
@@ -153,17 +152,13 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
                 bg-accent text-white hover:bg-accent/90
                 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? status || 'Checking in...' : 'Check In (free)'}
+              {loading ? 'Checking in...' : 'Check In (free)'}
             </button>
           )
         ) : (
           <div className="text-xs text-muted text-center py-2">
             Connect wallet to check in
           </div>
-        )}
-
-        {status && !loading && (
-          <div className="text-xs text-center text-red-400 mt-2">{status}</div>
         )}
       </div>
     </section>

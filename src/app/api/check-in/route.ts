@@ -4,9 +4,17 @@ import nacl from 'tweetnacl';
 import bs58 from 'bs58';
 import { getConnection, getCurrentEpochDay, DAILY_BONUS_THRESHOLD } from '@/lib/solana';
 import { getServiceClient } from '@/lib/supabase';
+import { rateLimit, getClientIp } from '@/lib/rate-limit';
 
 export async function POST(request: NextRequest) {
   try {
+    // Rate limit: 5 requests per minute per IP
+    const ip = getClientIp(request.headers);
+    const rl = rateLimit(`checkin:${ip}`, { limit: 5, windowMs: 60_000 });
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 });
+    }
+
     const { wallet, signature, message } = await request.json();
     if (!wallet || !signature || !message) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
@@ -14,10 +22,19 @@ export async function POST(request: NextRequest) {
 
     const today = getCurrentEpochDay();
 
-    // Validate message contains today's epoch day (replay prevention)
-    const expectedMessage = `Sigil check-in: ${today}`;
-    if (message !== expectedMessage) {
+    // Validate message: "Sigil check-in: {epochDay}:{timestamp}"
+    // Timestamp must be within 5 minutes
+    const match = message.match(/^Sigil check-in: (\d+):(\d+)$/);
+    if (!match) {
+      return NextResponse.json({ error: 'Invalid message format' }, { status: 400 });
+    }
+    const msgDay = parseInt(match[1], 10);
+    const msgTimestamp = parseInt(match[2], 10);
+    if (msgDay !== today) {
       return NextResponse.json({ error: 'Invalid or expired check-in message' }, { status: 400 });
+    }
+    if (Math.abs(Date.now() - msgTimestamp) > 5 * 60 * 1000) {
+      return NextResponse.json({ error: 'Message expired, please try again' }, { status: 400 });
     }
 
     // Verify signature
