@@ -1,9 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
+import { withCors, optionsResponse } from '@/lib/cors';
 import { getConnection } from '@/lib/solana';
 import { getServiceClient } from '@/lib/supabase';
 
 export const dynamic = 'force-dynamic';
+
+export function OPTIONS() {
+  return optionsResponse();
+}
 
 async function checkNftEligibility(wallet: string, supabase: ReturnType<typeof getServiceClient>): Promise<boolean> {
   try {
@@ -37,12 +42,11 @@ export async function GET(request: NextRequest) {
   const epochDay = Number(request.nextUrl.searchParams.get('epochDay'));
 
   if (!wallet || !epochDay) {
-    return NextResponse.json({ checkedIn: false, totalCheckedIn: 0, eligible: false });
+    return withCors(NextResponse.json({ checkedIn: false, totalCheckedIn: 0, eligible: false }));
   }
 
   const supabase = getServiceClient();
 
-  // Check NFT eligibility + check-in status in parallel
   const [eligible, checkInResult, countResult] = await Promise.all([
     checkNftEligibility(wallet, supabase),
     supabase
@@ -60,17 +64,15 @@ export async function GET(request: NextRequest) {
   const totalCheckedIn = countResult.count ?? 0;
 
   if (checkInResult.data) {
-    return NextResponse.json({
-      checkedIn: true,
-      weight: checkInResult.data.weight,
-      totalCheckedIn,
-      eligible,
-    });
+    return withCors(
+      NextResponse.json({
+        checkedIn: true,
+        weight: checkInResult.data.weight,
+        totalCheckedIn,
+        eligible,
+      })
+    );
   }
 
-  return NextResponse.json({
-    checkedIn: false,
-    totalCheckedIn,
-    eligible,
-  });
+  return withCors(NextResponse.json({ checkedIn: false, totalCheckedIn, eligible }));
 }

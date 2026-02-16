@@ -13,6 +13,7 @@ interface CheckInProps {
 export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
   const { publicKey, signMessage, connected } = useWallet();
   const [checkedIn, setCheckedIn] = useState(false);
+  const [eligible, setEligible] = useState(false);
   const [position, setPosition] = useState(0);
   const [totalCheckedIn, setTotalCheckedIn] = useState(0);
   const [weight, setWeight] = useState(1);
@@ -31,6 +32,7 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
         setPosition(data.position);
         setWeight(data.weight);
       }
+      setEligible(data.eligible ?? false);
       setTotalCheckedIn(data.totalCheckedIn || 0);
     } catch {
       // ignore
@@ -144,7 +146,7 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
             <div className="text-xs text-muted text-center py-2 bg-background rounded-xl border border-border">
               Checked in today &mdash; weight: {weight}x
             </div>
-          ) : (
+          ) : eligible ? (
             <button
               onClick={handleCheckIn}
               disabled={loading}
@@ -154,6 +156,10 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
             >
               {loading ? 'Checking in...' : 'Check In (free)'}
             </button>
+          ) : (
+            <div className="text-xs text-muted text-center py-2 bg-background rounded-xl border border-border">
+              Mint a Sigil NFT to check in
+            </div>
           )
         ) : (
           <div className="text-xs text-muted text-center py-2">
