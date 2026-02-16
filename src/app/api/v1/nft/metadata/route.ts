@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server';
+import { withCors, optionsResponse } from '@/lib/cors';
 import { getServiceClient } from '@/lib/supabase';
 import { getCurrentEpochDay } from '@/lib/solana';
 
 export const dynamic = 'force-dynamic';
+
+export function OPTIONS() {
+  return optionsResponse();
+}
 
 export async function GET() {
   const today = getCurrentEpochDay();
@@ -43,29 +48,30 @@ export async function GET() {
     checkInCount = count ?? 0;
   } catch { /* ignore count errors */ }
 
-  // Use direct Supabase image URL when available (wallets don't follow redirects well)
-  const imageUrl = billboardImageUrl || `${baseUrl}/api/nft/image`;
+  const imageUrl = billboardImageUrl || `${baseUrl}/api/v1/nft/image`;
 
-  return NextResponse.json(
-    {
-      name: 'Sigil',
-      symbol: 'SIGIL',
-      description: `A living NFT billboard. Today's advertiser: ${advertiser}. ${incentiveSol} SOL pool. ${checkInCount} checked in.`,
-      image: imageUrl,
-      external_url: baseUrl,
-      attributes: [
-        { trait_type: 'Type', value: 'Billboard NFT' },
-        { trait_type: 'Supply', value: '10,000' },
-        { trait_type: 'Advertiser', value: advertiser },
-        { trait_type: 'Incentive Pool', value: `${incentiveSol} SOL` },
-        { trait_type: 'Check-ins Today', value: String(checkInCount) },
-        { trait_type: 'Epoch Day', value: String(today) },
-      ],
-    },
-    {
-      headers: {
-        'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+  return withCors(
+    NextResponse.json(
+      {
+        name: 'Sigil',
+        symbol: 'SIGIL',
+        description: `A living NFT billboard. Today's advertiser: ${advertiser}. ${incentiveSol} SOL pool. ${checkInCount} checked in.`,
+        image: imageUrl,
+        external_url: baseUrl,
+        attributes: [
+          { trait_type: 'Type', value: 'Billboard NFT' },
+          { trait_type: 'Supply', value: '10,000' },
+          { trait_type: 'Advertiser', value: advertiser },
+          { trait_type: 'Incentive Pool', value: `${incentiveSol} SOL` },
+          { trait_type: 'Check-ins Today', value: String(checkInCount) },
+          { trait_type: 'Epoch Day', value: String(today) },
+        ],
       },
-    }
+      {
+        headers: {
+          'Cache-Control': 'public, max-age=60, s-maxage=60, stale-while-revalidate=30',
+        },
+      }
+    )
   );
 }
