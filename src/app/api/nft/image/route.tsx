@@ -21,21 +21,30 @@ export async function GET() {
       .select('*')
       .eq('epoch_day', today)
       .eq('moderation_status', 'approved')
-      .single();
+      .maybeSingle();
 
     if (claim) {
       advertiser = claim.farcaster_username || claim.claimer_wallet?.slice(0, 8) + '...';
       pfpUrl = claim.farcaster_pfp_url || '';
-      billboardImageUrl = claim.image_url || '';
       incentiveSol = ((claim.incentive_lamports || 0) / 1e9).toFixed(2);
+      // Use image_url from DB, or fall back to Supabase storage path (matches home page)
+      billboardImageUrl = claim.image_url || '';
+      if (!billboardImageUrl) {
+        const storageBase = process.env.NEXT_PUBLIC_SUPABASE_URL;
+        if (storageBase) {
+          billboardImageUrl = `${storageBase}/storage/v1/object/public/day-images/day-${today}.png`;
+        }
+      }
     }
+  } catch { /* ignore claim errors */ }
 
+  try {
     const { count } = await supabase
       .from('check_ins')
       .select('*', { count: 'exact', head: true })
       .eq('epoch_day', today);
-    checkInCount = count || 0;
-  } catch { /* use defaults */ }
+    checkInCount = count ?? 0;
+  } catch { /* ignore count errors */ }
 
   // If there's an uploaded billboard image, redirect to it
   if (billboardImageUrl) {
