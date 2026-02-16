@@ -46,20 +46,31 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
     }
 
-    // Verify NFT holder
+    // Verify Sigil NFT holder (on-chain ownership + DB mint verification)
     const connection = getConnection();
     const tokenAccounts = await connection.getParsedTokenAccountsByOwner(publicKey, {
       programId: new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA'),
     });
-    const holdsNft = tokenAccounts.value.some((acc) => {
-      const info = acc.account.data.parsed.info;
-      return info.tokenAmount.uiAmount === 1 && info.tokenAmount.decimals === 0;
-    });
-    if (!holdsNft) {
-      return NextResponse.json({ error: 'Must hold a Sigil NFT to check in' }, { status: 403 });
-    }
+    const nftMints = tokenAccounts.value
+      .filter((acc) => {
+        const info = acc.account.data.parsed.info;
+        return info.tokenAmount.uiAmount === 1 && info.tokenAmount.decimals === 0;
+      })
+      .map((acc) => acc.account.data.parsed.info.mint as string);
 
     const supabase = getServiceClient();
+
+    if (nftMints.length === 0) {
+      return NextResponse.json({ error: 'Must hold a Sigil NFT to check in' }, { status: 403 });
+    }
+    // Verify at least one NFT is a Sigil mint
+    const { count: sigilCount } = await supabase
+      .from('nft_mints')
+      .select('*', { count: 'exact', head: true })
+      .in('mint_address', nftMints);
+    if (!sigilCount || sigilCount === 0) {
+      return NextResponse.json({ error: 'Must hold a Sigil NFT to check in' }, { status: 403 });
+    }
 
     // Count today's check-ins so far to determine weight
     const { count: checkInCount } = await supabase
