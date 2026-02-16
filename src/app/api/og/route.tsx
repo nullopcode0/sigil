@@ -7,7 +7,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   const today = getCurrentEpochDay();
   const supabase = getServiceClient();
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://sigil.bond';
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.sigil.bond';
 
   let advertiser = 'No one yet';
   let pfpUrl = '';
@@ -28,16 +29,18 @@ export async function GET() {
     if (claim) {
       advertiser = claim.farcaster_username || claim.claimer_wallet?.slice(0, 8) + '...';
       pfpUrl = claim.farcaster_pfp_url || '';
-      billboardImageUrl = claim.image_url || '';
+      // Use storage URL pattern (claim.image_url returns null from Supabase JS client)
+      billboardImageUrl = `${supabaseUrl}/storage/v1/object/public/day-images/day-${today}.png`;
       incentiveSol = ((claim.incentive_lamports || 0) / 1e9).toFixed(2);
       linkUrl = claim.link_url || '';
     }
 
-    const { count } = await supabase
+    // Fetch all check-ins and count in JS (PostgREST count bug workaround)
+    const { data: todayCheckIns } = await supabase
       .from('check_ins')
-      .select('*', { count: 'exact', head: true })
+      .select('wallet')
       .eq('epoch_day', today);
-    checkInCount = count || 0;
+    checkInCount = (todayCheckIns || []).length;
 
     const { count: claimCount } = await supabase
       .from('day_claims')
@@ -60,7 +63,7 @@ export async function GET() {
     day: 'numeric',
   });
 
-  // 1200x630 — optimal for Twitter/FB/Discord/iMessage
+  // 1200x630 — optimal for Twitter/FB/Discord/Farcaster
   return new ImageResponse(
     (
       <div
