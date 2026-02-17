@@ -10,15 +10,37 @@ import { postToDiscordSubscribers } from '@/lib/discord';
 const LAMPORTS_PER_SOL = 1_000_000_000;
 
 /** Post to Farcaster, Telegram, Bluesky, Lens, and Discord in parallel. */
-async function broadcast(text: string, embeds?: { url: string }[]): Promise<boolean> {
+async function broadcast(text: string, embeds?: { url: string }[]): Promise<{
+  posted: boolean;
+  platforms: Record<string, boolean>;
+  errors: Record<string, string>;
+}> {
+  const errors: Record<string, string> = {};
+
   const [fcResult, tgResult, bskyResult, lensResult, discordResult] = await Promise.all([
-    cast({ text, embeds }),
-    postToChannel(text),
-    postToBluesky(text),
-    postToLens(text),
-    postToDiscordSubscribers(text),
+    cast({ text, embeds }).catch((e) => { errors.farcaster = String(e); return { success: false }; }),
+    postToChannel(text).catch((e) => { errors.telegram = String(e); return false; }),
+    postToBluesky(text).catch((e) => { errors.bluesky = String(e); return false; }),
+    postToLens(text).catch((e) => { errors.lens = String(e); return false; }),
+    postToDiscordSubscribers(text).catch((e) => { errors.discord = String(e); return false; }),
   ]);
-  return fcResult.success || tgResult || bskyResult || lensResult || discordResult;
+
+  const platforms = {
+    farcaster: fcResult.success,
+    telegram: tgResult as boolean,
+    bluesky: bskyResult as boolean,
+    lens: lensResult as boolean,
+    discord: discordResult as boolean,
+  };
+
+  // Log errors for platforms that returned false without throwing
+  if (!platforms.bluesky && !errors.bluesky) errors.bluesky = 'returned false (check env vars or API)';
+  if (!platforms.lens && !errors.lens) errors.lens = 'returned false (check env vars or API)';
+  if (!platforms.discord && !errors.discord) errors.discord = 'returned false (no subscriptions or env missing)';
+  if (!platforms.telegram && !errors.telegram) errors.telegram = 'returned false (check TELEGRAM_CHANNEL_ID)';
+
+  console.log('Broadcast results:', platforms, 'errors:', errors);
+  return { posted: Object.values(platforms).some(Boolean), platforms, errors };
 }
 
 /**
@@ -47,6 +69,8 @@ async function handleNotify(request: NextRequest) {
   const today = getCurrentEpochDay();
   const yesterday = today - 1;
   const posted: string[] = [];
+  const platformResults: Record<string, Record<string, boolean>> = {};
+  const platformErrors: Record<string, Record<string, string>> = {};
 
   try {
     // 1. Day flip — announce yesterday's billboard + today is open
@@ -69,7 +93,9 @@ async function handleNotify(request: NextRequest) {
       const text = `Day ${yesterday} billboard by ${who} (${sol} SOL incentive).\n\nToday's billboard is open — claim it at sigil.bond`;
 
       const result = await broadcast(text, embeds);
-      if (result) posted.push('day_flip');
+      platformResults.day_flip = result.platforms;
+      if (Object.keys(result.errors).length) platformErrors.day_flip = result.errors;
+      if (result.posted) posted.push('day_flip');
     }
 
     // 2. Largest incentive ever — check if yesterday was a record
@@ -88,7 +114,9 @@ async function handleNotify(request: NextRequest) {
       const sol = (yesterdayClaim.incentive_lamports / LAMPORTS_PER_SOL).toFixed(2);
       const text = `New record! Day ${yesterday} set the highest incentive ever on Sigil: ${sol} SOL.\n\nsigil.bond`;
       const result = await broadcast(text);
-      if (result) posted.push('record_incentive');
+      platformResults.record_incentive = result.platforms;
+      if (Object.keys(result.errors).length) platformErrors.record_incentive = result.errors;
+      if (result.posted) posted.push('record_incentive');
     }
 
     // 3. Mint milestones
@@ -104,7 +132,9 @@ async function handleNotify(request: NextRequest) {
         // Check if we already posted this milestone (simple: skip if > 5 past it)
         const text = `${m} Sigils minted! The billboard grows.\n\nMint yours at sigil.bond`;
         const result = await broadcast(text);
-        if (result) posted.push(`milestone_${m}`);
+        platformResults[`milestone_${m}`] = result.platforms;
+        if (Object.keys(result.errors).length) platformErrors[`milestone_${m}`] = result.errors;
+        if (result.posted) posted.push(`milestone_${m}`);
         break; // only post one milestone per run
       }
     }
@@ -119,10 +149,16 @@ async function handleNotify(request: NextRequest) {
     if (checkInCount >= 50) {
       const text = `${checkInCount} holders checked in on Day ${yesterday}. The Sigil community is active.\n\nsigil.bond`;
       const result = await broadcast(text);
-      if (result) posted.push('high_checkins');
+      platformResults.high_checkins = result.platforms;
+      if (Object.keys(result.errors).length) platformErrors.high_checkins = result.errors;
+      if (result.posted) posted.push('high_checkins');
     }
 
-    return NextResponse.json({ ok: true, posted, today, yesterday });
+    return NextResponse.json({
+      ok: true, posted, platforms: platformResults,
+      ...(Object.keys(platformErrors).length ? { errors: platformErrors } : {}),
+      today, yesterday,
+    });
   } catch (error) {
     console.error('Notify cron error:', error);
     return NextResponse.json({ error: (error as Error).message }, { status: 500 });
