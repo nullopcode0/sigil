@@ -45,10 +45,12 @@ export async function POST(request: NextRequest) {
     const supabase = getServiceClient();
 
     // Calculate pending rewards (same logic as GET /api/rewards)
-    const { data: checkIns } = await supabase
+    // Note: .eq('wallet', wallet) returns empty on Vercel — fetch all + filter in JS
+    const { data: allCheckIns } = await supabase
       .from('check_ins')
-      .select('epoch_day, weight')
-      .eq('wallet', wallet);
+      .select('epoch_day, weight, wallet')
+      .limit(10000);
+    const checkIns = (allCheckIns || []).filter((c) => c.wallet === wallet);
 
     if (!checkIns || checkIns.length === 0) {
       return NextResponse.json({ error: 'No check-ins found' }, { status: 400 });
@@ -61,11 +63,12 @@ export async function POST(request: NextRequest) {
       .in('epoch_day', epochDays);
     const claims = (allClaims || []).filter((c) => c.total_weight > 0);
 
-    const { data: distributed } = await supabase
+    const { data: allDistributed } = await supabase
       .from('reward_ledger')
-      .select('epoch_day, amount_lamports')
-      .eq('wallet', wallet)
-      .in('status', ['sent', 'pending']);
+      .select('epoch_day, amount_lamports, wallet, status');
+    const distributed = (allDistributed || []).filter(
+      (r) => r.wallet === wallet && (r.status === 'sent' || r.status === 'pending')
+    );
 
     const distributedByDay = new Map<number, number>();
     (distributed || []).forEach((r) => {

@@ -15,10 +15,14 @@ export async function GET(request: NextRequest) {
     const today = getCurrentEpochDay();
 
     // Get all check-ins for this wallet
-    const { data: checkIns } = await supabase
+    // Note: .eq('wallet', wallet) returns empty on Vercel Serverless Functions
+    // (works fine via REST API — likely a Supabase JS client + Vercel issue).
+    // Workaround: fetch all rows and filter in JS (table is small).
+    const { data: allCheckIns } = await supabase
       .from('check_ins')
-      .select('epoch_day, weight')
-      .eq('wallet', wallet);
+      .select('epoch_day, weight, wallet')
+      .limit(10000);
+    const checkIns = (allCheckIns || []).filter((c) => c.wallet === wallet);
 
     if (!checkIns || checkIns.length === 0) {
       // No check-ins — check if there's a claimable day today
@@ -49,11 +53,13 @@ export async function GET(request: NextRequest) {
     const claims = (allClaims || []).filter((c) => c.total_weight > 0);
 
     // Get already-distributed rewards
-    const { data: distributed } = await supabase
+    // Same Vercel/.eq() workaround — fetch all + filter in JS
+    const { data: allDistributed } = await supabase
       .from('reward_ledger')
-      .select('epoch_day, amount_lamports')
-      .eq('wallet', wallet)
-      .in('status', ['sent', 'pending']);
+      .select('epoch_day, amount_lamports, wallet, status');
+    const distributed = (allDistributed || []).filter(
+      (r) => r.wallet === wallet && (r.status === 'sent' || r.status === 'pending')
+    );
 
     const distributedByDay = new Map<number, number>();
     (distributed || []).forEach((r) => {
@@ -98,11 +104,8 @@ export async function GET(request: NextRequest) {
 
     if (todayCheckIn && todayClaim && todayClaim.total_weight === 0) {
       // Unsettled — calculate estimate from current check-ins
-      const { data: todayCheckins } = await supabase
-        .from('check_ins')
-        .select('weight')
-        .eq('epoch_day', today);
-      const currentTotalWeight = (todayCheckins || []).reduce((sum, row) => sum + row.weight, 0);
+      const todayCheckins = (allCheckIns || []).filter((c) => c.epoch_day === today);
+      const currentTotalWeight = todayCheckins.reduce((sum, row) => sum + row.weight, 0);
       if (currentTotalWeight > 0) {
         const estimated = Math.floor((todayCheckIn.weight / currentTotalWeight) * todayClaim.incentive_lamports);
         todayEstimate = {
