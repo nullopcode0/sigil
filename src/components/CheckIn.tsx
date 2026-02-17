@@ -8,9 +8,10 @@ import { toast } from 'sonner';
 interface CheckInProps {
   epochDay: number;
   billboardImageUrl?: string;
+  billboardLinkUrl?: string;
 }
 
-export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
+export default function CheckIn({ epochDay, billboardImageUrl, billboardLinkUrl }: CheckInProps) {
   const { publicKey, signMessage, connected } = useWallet();
   const [checkedIn, setCheckedIn] = useState(false);
   const [eligible, setEligible] = useState(false);
@@ -95,27 +96,71 @@ export default function CheckIn({ epochDay, billboardImageUrl }: CheckInProps) {
   return (
     <section className="rounded-2xl border border-border bg-surface overflow-hidden">
       {/* Billboard image */}
-      <div className="aspect-[2/1] bg-gradient-to-br from-[#0c0a1a] via-[#1a1040] to-[#0c0a1a] flex items-center justify-center relative overflow-hidden">
-        {billboardImageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={billboardImageUrl}
-            alt="Today's billboard"
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="text-center">
-            <div className="text-3xl font-extrabold text-white/20 mb-1">SIGIL</div>
-            <div className="text-xs text-white/20">No billboard today</div>
+      {billboardLinkUrl ? (
+        <a
+          href={billboardLinkUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="block aspect-[2/1] bg-gradient-to-br from-[#0c0a1a] via-[#1a1040] to-[#0c0a1a] relative overflow-hidden cursor-pointer"
+        >
+          {billboardImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={billboardImageUrl}
+              alt="Today's billboard"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="flex items-center justify-center w-full h-full">
+              <div className="text-center">
+                <div className="text-3xl font-extrabold text-white/20 mb-1">SIGIL</div>
+                <div className="text-xs text-white/20">No billboard today</div>
+              </div>
+            </div>
+          )}
+          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm
+            text-[10px] font-mono text-white/70">
+            {totalCheckedIn} checked in
           </div>
-        )}
-
-        {/* Check-in count badge */}
-        <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm
-          text-[10px] font-mono text-white/70">
-          {totalCheckedIn} checked in
+        </a>
+      ) : (
+        <div className="aspect-[2/1] bg-gradient-to-br from-[#0c0a1a] via-[#1a1040] to-[#0c0a1a] flex items-center justify-center relative overflow-hidden">
+          {billboardImageUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={billboardImageUrl}
+              alt="Today's billboard"
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="text-center">
+              <div className="text-3xl font-extrabold text-white/20 mb-1">SIGIL</div>
+              <div className="text-xs text-white/20">No billboard today</div>
+            </div>
+          )}
+          <div className="absolute top-3 right-3 px-2.5 py-1 rounded-full bg-black/50 backdrop-blur-sm
+            text-[10px] font-mono text-white/70">
+            {totalCheckedIn} checked in
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Advertiser link */}
+      {billboardLinkUrl && (
+        <div className="px-4 pt-2">
+          <a
+            href={billboardLinkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-[11px] text-accent hover:text-accent/80 transition-colors truncate"
+          >
+            <svg width="12" height="12" viewBox="0 0 12 12" fill="none" className="flex-shrink-0">
+              <path d="M5 3H3.5A1.5 1.5 0 002 4.5v4A1.5 1.5 0 003.5 10h4A1.5 1.5 0 009 8.5V7M7 2h3v3M10 2L5.5 6.5" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round"/>
+            </svg>
+            {billboardLinkUrl.replace(/^https?:\/\//, '')}
+          </a>
+        </div>
+      )}
 
       {/* Check-in area */}
       <div className="p-4">

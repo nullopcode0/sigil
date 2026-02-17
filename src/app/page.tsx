@@ -152,6 +152,7 @@ export default function Home() {
   const [platformFee, setPlatformFee] = useState(50_000_000); // default tier 1 (0.05 SOL)
   const [calendarKey, setCalendarKey] = useState(0);
   const [todayImageUrl, setTodayImageUrl] = useState<string | undefined>();
+  const [todayLinkUrl, setTodayLinkUrl] = useState<string | undefined>();
 
   const today = getCurrentEpochDay();
   const fcUser = context?.user;
@@ -179,6 +180,7 @@ export default function Home() {
         }
         const todayClaim = data.days?.find((d: { isToday: boolean }) => d.isToday);
         if (todayClaim?.claimed && todayClaim?.moderationStatus === 'approved') {
+          if (todayClaim.linkUrl) setTodayLinkUrl(todayClaim.linkUrl);
           // Try loading the billboard image — it's stored at a predictable path
           const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
           if (baseUrl) {
@@ -271,7 +273,7 @@ export default function Home() {
         {/* Home tab: Check-in + Rewards */}
         {tab === 'home' && (
           <>
-            <CheckIn epochDay={today} billboardImageUrl={todayImageUrl} />
+            <CheckIn epochDay={today} billboardImageUrl={todayImageUrl} billboardLinkUrl={todayLinkUrl} />
             <RewardsClaim epochDay={today} />
           </>
         )}
