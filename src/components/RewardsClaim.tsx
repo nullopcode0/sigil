@@ -86,6 +86,7 @@ export default function RewardsClaim({ epochDay }: RewardsClaimProps) {
 
       setTxSignature(data.txSignature);
       setPendingSol(0);
+      setDayBreakdown([]);
       toast.success('Rewards claimed!', {
         id: toastId,
         description: `TX: ${data.txSignature.slice(0, 16)}...`,
@@ -95,7 +96,8 @@ export default function RewardsClaim({ epochDay }: RewardsClaimProps) {
         },
         duration: 8000,
       });
-      fetchRewards();
+      // Delay re-fetch so reward_ledger write is consistent
+      setTimeout(fetchRewards, 3000);
     } catch (err) {
       toast.error((err as Error).message, { id: toastId });
     } finally {
