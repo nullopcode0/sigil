@@ -65,7 +65,8 @@ export async function POST(request: NextRequest) {
 
     const { data: allDistributed } = await supabase
       .from('reward_ledger')
-      .select('epoch_day, amount_lamports, wallet, status');
+      .select('epoch_day, amount_lamports, wallet, status')
+      .limit(10000);
     const distributed = (allDistributed || []).filter(
       (r) => r.wallet === wallet && (r.status === 'sent' || r.status === 'pending')
     );

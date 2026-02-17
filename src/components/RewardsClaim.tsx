@@ -96,8 +96,8 @@ export default function RewardsClaim({ epochDay }: RewardsClaimProps) {
         },
         duration: 8000,
       });
-      // Delay re-fetch so reward_ledger write is consistent
-      setTimeout(fetchRewards, 3000);
+      // Don't re-fetch — local state is already correct (pendingSol=0).
+      // Fresh data loads on next page visit.
     } catch (err) {
       toast.error((err as Error).message, { id: toastId });
     } finally {
