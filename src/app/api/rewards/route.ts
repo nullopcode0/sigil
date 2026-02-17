@@ -15,12 +15,10 @@ export async function GET(request: NextRequest) {
     const today = getCurrentEpochDay();
 
     // Get all check-ins for this wallet
-    // Note: .eq('wallet', wallet) alone returns empty due to PostgREST bug,
-    // so we fetch all and filter in JS (table is small)
-    const { data: allCheckIns } = await supabase
+    const { data: checkIns } = await supabase
       .from('check_ins')
-      .select('epoch_day, weight, wallet');
-    const checkIns = (allCheckIns || []).filter((c) => c.wallet === wallet);
+      .select('epoch_day, weight')
+      .eq('wallet', wallet);
 
     if (!checkIns || checkIns.length === 0) {
       // No check-ins — check if there's a claimable day today
@@ -28,7 +26,7 @@ export async function GET(request: NextRequest) {
         .from('day_claims')
         .select('incentive_lamports')
         .eq('epoch_day', today)
-        .single();
+        .maybeSingle();
 
       return NextResponse.json({
         pendingLamports: 0,
@@ -41,13 +39,14 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // Get settled days (total_weight > 0) that this wallet checked into
+    // Get settled days that this wallet checked into
+    // Fetch by epoch_day, then filter total_weight > 0 in JS
     const epochDays = checkIns.map((c) => c.epoch_day);
-    const { data: claims } = await supabase
+    const { data: allClaims } = await supabase
       .from('day_claims')
       .select('epoch_day, incentive_lamports, total_weight')
-      .in('epoch_day', epochDays)
-      .gt('total_weight', 0);
+      .in('epoch_day', epochDays);
+    const claims = (allClaims || []).filter((c) => c.total_weight > 0);
 
     // Get already-distributed rewards
     const { data: distributed } = await supabase
@@ -88,42 +87,37 @@ export async function GET(request: NextRequest) {
 
     // Calculate estimated rewards for today (unsettled)
     let todayEstimate = null;
+    let todayPool = 0;
     const todayCheckIn = checkIns.find((c) => c.epoch_day === today);
-    if (todayCheckIn) {
-      // Get today's claim
-      const { data: todayClaim } = await supabase
-        .from('day_claims')
-        .select('incentive_lamports, total_weight')
-        .eq('epoch_day', today)
-        .single();
 
-      if (todayClaim && todayClaim.total_weight === 0) {
-        // Unsettled — calculate estimate from current check-ins (reuse allCheckIns)
-        const todayWeights = (allCheckIns || []).filter((c) => c.epoch_day === today);
-        const currentTotalWeight = todayWeights.reduce((sum, row) => sum + row.weight, 0);
-        if (currentTotalWeight > 0) {
-          const estimated = Math.floor((todayCheckIn.weight / currentTotalWeight) * todayClaim.incentive_lamports);
-          todayEstimate = {
-            epochDay: today,
-            weight: todayCheckIn.weight,
-            currentTotalWeight,
-            incentiveLamports: todayClaim.incentive_lamports,
-            estimatedLamports: estimated,
-            estimatedSol: estimated / 1e9,
-          };
-        }
+    const { data: todayClaim } = await supabase
+      .from('day_claims')
+      .select('incentive_lamports, total_weight')
+      .eq('epoch_day', today)
+      .maybeSingle();
+
+    if (todayCheckIn && todayClaim && todayClaim.total_weight === 0) {
+      // Unsettled — calculate estimate from current check-ins
+      const { data: todayCheckins } = await supabase
+        .from('check_ins')
+        .select('weight')
+        .eq('epoch_day', today);
+      const currentTotalWeight = (todayCheckins || []).reduce((sum, row) => sum + row.weight, 0);
+      if (currentTotalWeight > 0) {
+        const estimated = Math.floor((todayCheckIn.weight / currentTotalWeight) * todayClaim.incentive_lamports);
+        todayEstimate = {
+          epochDay: today,
+          weight: todayCheckIn.weight,
+          currentTotalWeight,
+          incentiveLamports: todayClaim.incentive_lamports,
+          estimatedLamports: estimated,
+          estimatedSol: estimated / 1e9,
+        };
       }
     }
 
-    // Get today's pool size regardless
-    let todayPool = 0;
-    if (!todayCheckIn) {
-      const { data: todayClaim } = await supabase
-        .from('day_claims')
-        .select('incentive_lamports')
-        .eq('epoch_day', today)
-        .single();
-      todayPool = todayClaim ? todayClaim.incentive_lamports / 1e9 : 0;
+    if (!todayCheckIn && todayClaim) {
+      todayPool = todayClaim.incentive_lamports / 1e9;
     }
 
     return NextResponse.json({

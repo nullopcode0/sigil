@@ -55,11 +55,11 @@ export async function POST(request: NextRequest) {
     }
 
     const epochDays = checkIns.map((c) => c.epoch_day);
-    const { data: claims } = await supabase
+    const { data: allClaims } = await supabase
       .from('day_claims')
       .select('epoch_day, incentive_lamports, total_weight')
-      .in('epoch_day', epochDays)
-      .gt('total_weight', 0);
+      .in('epoch_day', epochDays);
+    const claims = (allClaims || []).filter((c) => c.total_weight > 0);
 
     const { data: distributed } = await supabase
       .from('reward_ledger')
